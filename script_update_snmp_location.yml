@@ -1,0 +1,48 @@
+---
+- name: Update snmp location
+  hosts: SWITCHS
+  gather_facts: yes
+  connection: local
+
+  vars_prompt:
+  - name: "mgmt_username"
+    prompt: "Username"
+    private: no
+  - name: "mgmt_password"
+    prompt: "Password"
+
+  tasks:
+   - name: SYS | Define provider
+     set_fact:
+       provider:
+        host: "{{ inventory_hostname }}"
+        username: "{{ mgmt_username }}"
+        password: "{{ mgmt_password }}"
+        port: 22
+
+   - name: command show snmp location
+     ios_command:
+      provider: "{{ provider }}"
+      commands:
+         - sh snmp location
+     register: output
+
+   - name: Register output
+     copy:
+      content: "{{ output.stdout }}"
+      dest: "/etc/ansible/snmp/parse_snmp_location/location__{{ inventory_hostname }}.txt"
+
+   - name: Ansible replace multiple words example
+     replace:
+      path: /etc/ansible/snmp/parse_snmp_location/location__{{ inventory_hostname }}.txt
+      regexp: "{{ item }}"
+      replace: " "
+     with_items:
+     - 'u'
+
+   - name: config new snmp location
+     ios_config:
+      provider: "{{ provider }}"
+      lines:
+        - snmp-server location {{lookup('file', '/etc/ansible/snmp/parse_snmp_location/location__{{ inventory_hostname }}.txt') }} NEW TEXT
+        - do wr
